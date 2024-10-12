@@ -775,7 +775,8 @@
     <string name="error_saving_picture">Error saving picture</string>
 
     <!-- Reader activity -->
-    <string name="custom_filter">Custom filter</string>
+    <string name="filters">Filters</string>
+    <string name="enhancements">Enhancements</string>
     <string name="set_as_cover">Set as cover</string>
     <string name="cover_updated">Cover updated</string>
     <string name="share_page_info">%1$s: %2$s, page %3$d</string>
@@ -952,4 +953,14 @@
     <string name="exception_http">HTTP %d, check website in WebView</string>
     <string name="exception_offline">No Internet connection</string>
     <string name="exception_unknown_host">Couldn\'t reach %s</string>
+
+    <!-- Enhancement section -->
+    <string name="pref_enhancement_enabled">Enable</string>
+    <string name="pref_enhancement_base_url">Base URL</string>
+    <string name="pref_enhancement_use_denoiser">Denoise</string>
+    <string name="pref_enhancement_use_colorizer">Colorize</string>
+    <string name="pref_enhancement_use_upscaler">Upscale x4</string>
+    <string name="pref_enhancement_use_server_cache">Cache on Server</string>
+    <string name="pref_enhancement_denoiser_sigma">Denoise Sigma</string>
+    <string name="pref_enhancement_denoiser_sigma_summary">Blur strength</string>
 </resources>

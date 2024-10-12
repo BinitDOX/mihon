@@ -6,6 +6,7 @@ import eu.kanade.domain.source.service.SourcePreferences
 import eu.kanade.domain.track.service.TrackPreferences
 import eu.kanade.domain.ui.UiPreferences
 import eu.kanade.tachiyomi.core.security.SecurityPreferences
+import eu.kanade.tachiyomi.enhancement.EnhancementPreferences
 import eu.kanade.tachiyomi.network.NetworkPreferences
 import eu.kanade.tachiyomi.ui.reader.setting.ReaderPreferences
 import eu.kanade.tachiyomi.util.system.isDevFlavor
@@ -44,6 +45,9 @@ class PreferenceModule(val app: Application) : InjektModule {
         }
         addSingletonFactory {
             ReaderPreferences(get())
+        }
+        addSingletonFactory {
+            EnhancementPreferences(get())
         }
         addSingletonFactory {
             TrackPreferences(get())

@@ -5,6 +5,8 @@ import android.content.Context
 import android.view.LayoutInflater
 import androidx.core.view.isVisible
 import eu.kanade.tachiyomi.databinding.ReaderErrorBinding
+import eu.kanade.tachiyomi.enhancement.EnhancementApi
+import eu.kanade.tachiyomi.enhancement.EnhancementConfig
 import eu.kanade.tachiyomi.source.model.Page
 import eu.kanade.tachiyomi.ui.reader.model.InsertPage
 import eu.kanade.tachiyomi.ui.reader.model.ReaderPage
@@ -25,6 +27,7 @@ import tachiyomi.core.common.util.lang.withIOContext
 import tachiyomi.core.common.util.lang.withUIContext
 import tachiyomi.core.common.util.system.ImageUtil
 import tachiyomi.core.common.util.system.logcat
+import java.util.Base64
 
 /**
  * View of the ViewPager that contains a page of a chapter.
@@ -53,6 +56,12 @@ class PagerPageHolder(
     private var errorLayout: ReaderErrorBinding? = null
 
     private val scope = MainScope()
+
+    /**
+     * Enhancement stuff, should not be here
+     */
+    private val enhancementApi by lazy { EnhancementApi() }
+    private val enhancementConfig = EnhancementConfig(scope)
 
     /**
      * Job for loading the page and processing changes to the page's status.
@@ -174,6 +183,11 @@ class PagerPageHolder(
                 }
                 removeErrorLayout()
             }
+
+            if(!isAnimated && enhancementConfig.enabled) {
+                setEnhancedImage(source, page)
+            }
+
         } catch (e: Throwable) {
             logcat(LogPriority.ERROR, e)
             withUIContext {
@@ -181,6 +195,47 @@ class PagerPageHolder(
             }
         }
     }
+
+    private suspend fun setEnhancedImage(source: BufferedSource, page: ReaderPage) {
+        try {
+            val imageBytes = source.readByteArray()
+            val base64ImageData = "base64,${Base64.getEncoder().encodeToString(imageBytes)}"
+
+            val enhancedImage = withIOContext {
+                enhancementApi.enhanceImage(
+                    imageName = page.index.toString(),
+                    imageData = base64ImageData,
+                    imageURL = page.imageUrl ?: page.url,
+                    mangaSource = page.chapter.chapter.scanlator,
+                    mangaTitle = page.chapter.chapter.manga_id.toString(),
+                    mangaChapter = page.chapter.chapter.name,
+                    config = enhancementConfig
+                )
+            }
+
+            if(enhancedImage != null) {
+                val decodedBytes = Base64.getDecoder().decode(enhancedImage.colorImgData)
+                val enhancedImageSource = Buffer().write(decodedBytes)
+
+                withUIContext {
+                    setImage(
+                        enhancedImageSource,
+                        isAnimated = false,
+                        config = Config(
+                            zoomDuration = viewer.config.doubleTapAnimDuration,
+                            minimumScaleType = viewer.config.imageScaleType,
+                            cropBorders = viewer.config.imageCropBorders,
+                            zoomStartPosition = viewer.config.imageZoomType,
+                            landscapeZoom = viewer.config.landscapeZoom,
+                        ),
+                    )
+                }
+            }
+        } catch (e: Throwable) {
+            logcat(LogPriority.ERROR, e)
+        }
+    }
+
 
     private fun process(page: ReaderPage, imageSource: BufferedSource): BufferedSource {
         if (viewer.config.dualPageRotateToFit) {

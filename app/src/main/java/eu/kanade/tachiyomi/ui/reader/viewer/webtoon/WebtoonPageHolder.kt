@@ -11,6 +11,8 @@ import androidx.core.view.updateLayoutParams
 import androidx.core.view.updateMargins
 import com.davemorrissey.labs.subscaleview.SubsamplingScaleImageView
 import eu.kanade.tachiyomi.databinding.ReaderErrorBinding
+import eu.kanade.tachiyomi.enhancement.EnhancementApi
+import eu.kanade.tachiyomi.enhancement.EnhancementConfig
 import eu.kanade.tachiyomi.source.model.Page
 import eu.kanade.tachiyomi.ui.reader.model.ReaderPage
 import eu.kanade.tachiyomi.ui.reader.viewer.ReaderPageImageView
@@ -30,6 +32,7 @@ import tachiyomi.core.common.util.lang.withIOContext
 import tachiyomi.core.common.util.lang.withUIContext
 import tachiyomi.core.common.util.system.ImageUtil
 import tachiyomi.core.common.util.system.logcat
+import java.util.Base64
 
 /**
  * Holder of the webtoon reader for a single page of a chapter.
@@ -71,6 +74,12 @@ class WebtoonPageHolder(
     private var page: ReaderPage? = null
 
     private val scope = MainScope()
+
+    /**
+     * Enhancement stuff, should not be here
+     */
+    private val enhancementApi by lazy { EnhancementApi() }
+    private val enhancementConfig = EnhancementConfig(scope)
 
     /**
      * Job for loading the page.
@@ -204,11 +213,56 @@ class WebtoonPageHolder(
                 )
                 removeErrorLayout()
             }
+
+
+            if(!isAnimated && enhancementConfig.enabled && page != null) {
+                setEnhancedImage(source, page!!)
+            }
+
         } catch (e: Throwable) {
             logcat(LogPriority.ERROR, e)
             withUIContext {
                 setError()
             }
+        }
+    }
+
+    private suspend fun setEnhancedImage(source: BufferedSource, page: ReaderPage) {
+        try {
+            val imageBytes = source.readByteArray()
+            val base64ImageData = "base64,${Base64.getEncoder().encodeToString(imageBytes)}"
+
+            val enhancedImage = withIOContext {
+                enhancementApi.enhanceImage(
+                    imageName = page.index.toString(),
+                    imageData = base64ImageData,
+                    imageURL = page.imageUrl ?: page.url,
+                    mangaSource = page.chapter.chapter.scanlator,
+                    mangaTitle = page.chapter.chapter.manga_id.toString(),
+                    mangaChapter = page.chapter.chapter.name,
+                    config = enhancementConfig
+                )
+            }
+
+            if(enhancedImage != null) {
+                val decodedBytes = Base64.getDecoder().decode(enhancedImage.colorImgData.split(',', limit = 2)[1])
+                val enhancedImageSource = Buffer().write(decodedBytes)
+
+                withUIContext {
+                    frame.setImage(
+                        enhancedImageSource,
+                        isAnimated = false,
+                        ReaderPageImageView.Config(
+                            zoomDuration = viewer.config.doubleTapAnimDuration,
+                            minimumScaleType = SubsamplingScaleImageView.SCALE_TYPE_FIT_WIDTH,
+                            cropBorders = viewer.config.imageCropBorders,
+                        ),
+                    )
+                    removeErrorLayout()
+                }
+            }
+        } catch (e: Throwable) {
+            logcat(LogPriority.ERROR, e)
         }
     }
 

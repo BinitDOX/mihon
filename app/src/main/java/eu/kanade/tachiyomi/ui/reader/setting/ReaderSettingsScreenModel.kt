@@ -2,6 +2,7 @@ package eu.kanade.tachiyomi.ui.reader.setting
 
 import cafe.adriel.voyager.core.model.ScreenModel
 import eu.kanade.presentation.util.ioCoroutineScope
+import eu.kanade.tachiyomi.enhancement.EnhancementPreferences
 import eu.kanade.tachiyomi.ui.reader.ReaderViewModel
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -17,6 +18,7 @@ class ReaderSettingsScreenModel(
     val onChangeReadingMode: (ReadingMode) -> Unit,
     val onChangeOrientation: (ReaderOrientation) -> Unit,
     val preferences: ReaderPreferences = Injekt.get(),
+    val enhancementPreferences: EnhancementPreferences = Injekt.get()
 ) : ScreenModel {
 
     val viewerFlow = readerState
