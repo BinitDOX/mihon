@@ -72,7 +72,7 @@ import tachiyomi.domain.track.model.Track
 import tachiyomi.source.local.isLocal
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
-import java.util.Collections
+import kotlin.random.Random
 
 /**
  * Typealias for the library manga, using the category as keys, and list of manga as values.
@@ -107,16 +107,14 @@ class LibraryScreenModel(
                 getTracksPerManga.subscribe(),
                 getTrackingFilterFlow(),
                 downloadCache.changes,
-            ) { searchQuery, library, tracks, trackingFiler, _ ->
+            ) { searchQuery, library, tracks, trackingFilter, _ ->
                 library
-                    .applyFilters(tracks, trackingFiler)
-                    .applySort(tracks, trackingFiler.keys)
+                    .applyFilters(tracks, trackingFilter)
+                    .applySort(tracks, trackingFilter.keys)
                     .mapValues { (_, value) ->
                         if (searchQuery != null) {
-                            // Filter query
                             value.filter { it.matches(searchQuery) }
                         } else {
-                            // Don't do anything
                             value
                         }
                     }
@@ -171,12 +169,9 @@ class LibraryScreenModel(
             .launchIn(screenModelScope)
     }
 
-    /**
-     * Applies library filters to the given map of manga.
-     */
     private suspend fun LibraryMap.applyFilters(
         trackMap: Map<Long, List<Track>>,
-        trackingFiler: Map<Long, TriState>,
+        trackingFilter: Map<Long, TriState>,
     ): LibraryMap {
         val prefs = getLibraryItemPreferencesFlow().first()
         val downloadedOnly = prefs.globalFilterDownloaded
@@ -188,10 +183,10 @@ class LibraryScreenModel(
         val filterCompleted = prefs.filterCompleted
         val filterIntervalCustom = prefs.filterIntervalCustom
 
-        val isNotLoggedInAnyTrack = trackingFiler.isEmpty()
+        val isNotLoggedInAnyTrack = trackingFilter.isEmpty()
 
-        val excludedTracks = trackingFiler.mapNotNull { if (it.value == TriState.ENABLED_NOT) it.key else null }
-        val includedTracks = trackingFiler.mapNotNull { if (it.value == TriState.ENABLED_IS) it.key else null }
+        val excludedTracks = trackingFilter.mapNotNull { if (it.value == TriState.ENABLED_NOT) it.key else null }
+        val includedTracks = trackingFilter.mapNotNull { if (it.value == TriState.ENABLED_IS) it.key else null }
         val trackFiltersIsIgnored = includedTracks.isEmpty() && excludedTracks.isEmpty()
 
         val filterFnDownloaded: (LibraryItem) -> Boolean = {
@@ -249,17 +244,10 @@ class LibraryScreenModel(
                 filterFnTracking(it)
         }
 
-        return this.mapValues { entry -> entry.value.fastFilter(filterFn) }
+        return mapValues { (_, value) -> value.fastFilter(filterFn) }
     }
 
-    /**
-     * Applies library sorting to the given map of manga.
-     */
-    private fun LibraryMap.applySort(
-        // Map<MangaId, List<Track>>
-        trackMap: Map<Long, List<Track>>,
-        loggedInTrackerIds: Set<Long>,
-    ): LibraryMap {
+    private fun LibraryMap.applySort(trackMap: Map<Long, List<Track>>, loggedInTrackerIds: Set<Long>): LibraryMap {
         val sortAlphabetically: (LibraryItem, LibraryItem) -> Int = { i1, i2 ->
             i1.libraryManga.manga.title.lowercase().compareToWithCollator(i2.libraryManga.manga.title.lowercase())
         }
@@ -278,9 +266,8 @@ class LibraryScreenModel(
             }
         }
 
-        val sortFn: (LibraryItem, LibraryItem) -> Int = { i1, i2 ->
-            val sort = keys.find { it.id == i1.libraryManga.category }!!.sort
-            when (sort.type) {
+        fun LibrarySort.comparator(): Comparator<LibraryItem> = Comparator { i1, i2 ->
+            when (this.type) {
                 LibrarySort.Type.Alphabetical -> {
                     sortAlphabetically(i1, i2)
                 }
@@ -293,8 +280,8 @@ class LibraryScreenModel(
                 LibrarySort.Type.UnreadCount -> when {
                     // Ensure unread content comes first
                     i1.libraryManga.unreadCount == i2.libraryManga.unreadCount -> 0
-                    i1.libraryManga.unreadCount == 0L -> if (sort.isAscending) 1 else -1
-                    i2.libraryManga.unreadCount == 0L -> if (sort.isAscending) -1 else 1
+                    i1.libraryManga.unreadCount == 0L -> if (this.isAscending) 1 else -1
+                    i2.libraryManga.unreadCount == 0L -> if (this.isAscending) -1 else 1
                     else -> i1.libraryManga.unreadCount.compareTo(i2.libraryManga.unreadCount)
                 }
                 LibrarySort.Type.TotalChapters -> {
@@ -314,17 +301,22 @@ class LibraryScreenModel(
                     val item2Score = trackerScores[i2.libraryManga.id] ?: defaultTrackerScoreSortValue
                     item1Score.compareTo(item2Score)
                 }
+                LibrarySort.Type.Random -> {
+                    error("Why Are We Still Here? Just To Suffer?")
+                }
             }
         }
 
-        return this.mapValues { entry ->
-            val comparator = if (keys.find { it.id == entry.key.id }!!.sort.isAscending) {
-                Comparator(sortFn)
-            } else {
-                Collections.reverseOrder(sortFn)
+        return mapValues { (key, value) ->
+            if (key.sort.type == LibrarySort.Type.Random) {
+                return@mapValues value.shuffled(Random(libraryPreferences.randomSortSeed().get()))
             }
 
-            entry.value.sortedWith(comparator.thenComparator(sortAlphabetically))
+            val comparator = key.sort.comparator()
+                .let { if (key.sort.isAscending) it else it.reversed() }
+                .thenComparator(sortAlphabetically)
+
+            value.sortedWith(comparator)
         }
     }
 
