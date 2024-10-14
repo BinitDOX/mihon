@@ -19,6 +19,8 @@ import eu.kanade.tachiyomi.ui.reader.viewer.ReaderPageImageView
 import eu.kanade.tachiyomi.ui.reader.viewer.ReaderProgressIndicator
 import eu.kanade.tachiyomi.ui.webview.WebViewActivity
 import eu.kanade.tachiyomi.util.system.dpToPx
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.MainScope
 import kotlinx.coroutines.flow.collectLatest
@@ -196,14 +198,17 @@ class WebtoonPageHolder(
         val streamFn = page?.stream ?: return
 
         try {
-            val (source, isAnimated) = withIOContext {
-                val source = streamFn().use { process(Buffer().readFrom(it)) }
-                val isAnimated = ImageUtil.isAnimatedAndSupported(source)
-                Pair(source, isAnimated)
+            val (imageData, isAnimated) = withIOContext {
+                val buffer = Buffer()
+                val source = streamFn().use { process(buffer.readFrom(it)) }
+                val isAnimated = ImageUtil.isAnimatedAndSupported(buffer)
+                val imageData = source.readByteArray()
+                Pair(imageData, isAnimated)
             }
+
             withUIContext {
                 frame.setImage(
-                    source,
+                    Buffer().write(imageData),
                     isAnimated,
                     ReaderPageImageView.Config(
                         zoomDuration = viewer.config.doubleTapAnimDuration,
@@ -214,9 +219,8 @@ class WebtoonPageHolder(
                 removeErrorLayout()
             }
 
-
             if(!isAnimated && enhancementConfig.enabled && page != null) {
-                setEnhancedImage(source, page!!)
+                setEnhancedImage(imageData, page!!)
             }
 
         } catch (e: Throwable) {
@@ -227,9 +231,8 @@ class WebtoonPageHolder(
         }
     }
 
-    private suspend fun setEnhancedImage(source: BufferedSource, page: ReaderPage) {
+    private suspend fun setEnhancedImage(imageBytes: ByteArray, page: ReaderPage) {
         try {
-            val imageBytes = source.readByteArray()
             val base64ImageData = "base64,${Base64.getEncoder().encodeToString(imageBytes)}"
 
             val enhancedImage = withIOContext {

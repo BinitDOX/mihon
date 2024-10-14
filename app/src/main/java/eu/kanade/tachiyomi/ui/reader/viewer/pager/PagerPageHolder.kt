@@ -156,19 +156,22 @@ class PagerPageHolder(
         val streamFn = page.stream ?: return
 
         try {
-            val (source, isAnimated, background) = withIOContext {
+            val (imageData, isAnimated, background) = withIOContext {
+                val buffer = Buffer()
                 val source = streamFn().use { process(item, Buffer().readFrom(it)) }
-                val isAnimated = ImageUtil.isAnimatedAndSupported(source)
+                val isAnimated = ImageUtil.isAnimatedAndSupported(buffer)
                 val background = if (!isAnimated && viewer.config.automaticBackground) {
-                    ImageUtil.chooseBackground(context, source.peek().inputStream())
+                    ImageUtil.chooseBackground(context, buffer.peek().inputStream())
                 } else {
                     null
                 }
-                Triple(source, isAnimated, background)
+                val imageData = source.readByteArray()
+                Triple(imageData, isAnimated, background)
             }
+
             withUIContext {
                 setImage(
-                    source,
+                    Buffer().write(imageData),
                     isAnimated,
                     Config(
                         zoomDuration = viewer.config.doubleTapAnimDuration,
@@ -184,8 +187,8 @@ class PagerPageHolder(
                 removeErrorLayout()
             }
 
-            if(!isAnimated && enhancementConfig.enabled) {
-                setEnhancedImage(source, page)
+            if (!isAnimated && enhancementConfig.enabled) {
+                setEnhancedImage(Buffer().write(imageData), page)
             }
 
         } catch (e: Throwable) {
