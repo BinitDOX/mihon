@@ -1,3 +1,27 @@
+## About this <a href="https://github.com/mihonapp/mihon">Fork</a>:
+
+This fork introduces the **Panel Enhancement** branch, which brings advanced features such as **colorization**, **upscaling**, and **denoising** to enhance the image panels. 
+
+### Features:
+- **Colorizer**: Adds color to black-and-white images.
+- **Upscaler**: Increases image resolution.
+- **Denoiser**: Reduces noise for cleaner images.
+
+### Important Notes:
+- **Self-hosted server required**: These enhancements rely on a backend server for processing. You can follow <a href="https://github.com/BinitDOX/Manga-Colorizer?tab=readme-ov-file#server-usage-instructions--local-hosting">this</a> to set up the server on your local machine or online hosting.
+  
+This branch is intended only as a **demo**. It showcases potential enhancements using AI.
+
+### Demo:
+Video: <a href="https://drive.google.com/file/d/1DvkaO9GfwfEbmTNiQ0TEso6kWF_jy8nF/view?usp=sharing"/>GDrive Link</a>
+
+### Credits:
+- https://github.com/qweasdd/manga-colorization-v2 by qweasdd for AI Model and Weights.
+- https://github.com/xiaogdgenuine/Manga-Colorization-FJ by xiaogdgenuine for Upscaler integration.
+- https://github.com/xinntao/Real-ESRGAN by xinntao for the Upscaler (ESR-GAN)
+  
+---
+
 <div align="center">
 
 <a href="https://mihon.app">
